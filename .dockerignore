@@ -1,0 +1,9 @@
+.git
+.gitignore
+README.md
+settings.json
+start.sh
+stop.sh
+*.pyc
+__pycache__
+.DS_Store

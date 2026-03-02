@@ -8,6 +8,7 @@ if [ -f proxy.pid ] && kill -0 "$(cat proxy.pid)" 2>/dev/null; then
 fi
 
 export AWS_REGION="${AWS_REGION:-ap-northeast-1}"
+export LISTEN_HOST="${LISTEN_HOST:-127.0.0.1}"  # localhost-only for direct run
 
 echo "Starting Bedrock Effort Max Proxy..."
 : > proxy.log  # truncate log

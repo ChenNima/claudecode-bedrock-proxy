@@ -76,6 +76,8 @@ Claude Code CLI
 
 ## 使用
 
+### 方式 1：直接运行
+
 ```bash
 # 启动
 ./start.sh
@@ -86,6 +88,30 @@ Claude Code CLI
 # 健康检查
 curl http://127.0.0.1:8888/health
 ```
+
+### 方式 2：Docker（推荐 - 支持开机自动启动）
+
+```bash
+# 一键启动
+./start-docker.sh
+
+# 或手动执行
+docker compose up -d
+
+# 查看日志
+docker compose logs -f
+
+# 停止服务
+docker compose down
+```
+
+**优势：**
+- ✅ 开机自动启动（`restart: unless-stopped`）
+- ✅ 环境隔离，不污染宿主机
+- ✅ 自动健康检查和重启
+- ✅ 日志自动轮转
+
+自定义配置请编辑 [docker-compose.yml](docker-compose.yml)。
 
 ## 环境变量
 
@@ -110,7 +136,5 @@ curl http://127.0.0.1:8888/health
 
 ## 依赖
 
-- Python 3.9+
-- `aiohttp`
-- `botocore`
-- `yarl`
+- **Docker 模式**：Docker 20.10+ & Docker Compose 2.0+
+- **直接运行**：Python 3.9+ & `pip install -r requirements.txt`

@@ -3,3 +3,7 @@ proxy.pid
 __pycache__/
 *.pyc
 .env
+.DS_Store
+.vscode/
+.idea/
+*.log

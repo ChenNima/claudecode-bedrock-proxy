@@ -1,0 +1,44 @@
+services:
+  bedrock-proxy:
+    build: .
+    image: bedrock-proxy:latest
+    container_name: bedrock-proxy
+
+    # 开机自动启动
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:8888:8888"
+
+    environment:
+      # Proxy 配置
+      - LISTEN_HOST=0.0.0.0   # 容器内监听所有接口
+      - PROXY_PORT=8888
+      - AWS_REGION=ap-northeast-1
+
+      # Cache 配置
+      - CACHE_ENABLED=1
+      - CACHE_TTL=1h
+
+      # AWS 认证方式 1: SigV4（推荐 - 使用宿主机 AWS credentials）
+      # 挂载 ~/.aws 目录到容器
+
+      # AWS 认证方式 2: Bearer Token（取消下面注释并设置）
+      # - BEDROCK_BEARER_TOKEN=your-token-here
+
+    volumes:
+      # 挂载 AWS credentials（SigV4 认证需要）
+      - ~/.aws:/root/.aws:ro
+
+      # 可选：挂载配置文件（如果需要动态修改）
+      # - ./proxy.py:/app/proxy.py:ro
+
+    # 网络模式：host 可以让容器直接使用宿主机网络（可选）
+    # network_mode: host
+
+    # 日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

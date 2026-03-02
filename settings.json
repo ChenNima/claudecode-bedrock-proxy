@@ -34,23 +34,25 @@
   },
 
   // ============================================
-  // Hook：每次启动 Claude Code 自动启动 proxy
+  // Hook：每次启动 Claude Code 自动启动 proxy（仅非 Docker 模式需要）
   // ============================================
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/claudecode-bedrock-proxy/start.sh",
-            "timeout": 10,
-            "statusMessage": "Starting effort-max proxy..."
-          }
-        ]
-      }
-    ]
-  }
+  // 注意：使用 Docker 部署时，proxy 会开机自动启动，无需此 hook
+  // "hooks": {
+  //   "SessionStart": [
+  //     {
+  //       "matcher": "startup",
+  //       "hooks": [
+  //         {
+  //           "type": "command",
+  //           "command": "/path/to/claudecode-bedrock-proxy/start.sh",
+  //           "timeout": 10,
+  //           "statusMessage": "Starting effort-max proxy..."
+  //         }
+  //       ]
+  //     }
+  //   ]
+  // }
+}
 }
 
 // ============================================

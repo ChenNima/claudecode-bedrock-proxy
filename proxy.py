@@ -19,7 +19,9 @@ from botocore.session import Session as BotocoreSession
 from yarl import URL
 
 # Configuration
-LISTEN_HOST = "127.0.0.1"
+# Docker: listen on 0.0.0.0 to accept connections from outside container
+# Direct: use 127.0.0.1 for localhost-only access
+LISTEN_HOST = os.environ.get("LISTEN_HOST", "0.0.0.0")
 LISTEN_PORT = int(os.environ.get("PROXY_PORT", "8888"))
 TARGET_REGION = os.environ.get("AWS_REGION", "ap-northeast-1")
 RUNTIME_HOST = f"bedrock-runtime.{TARGET_REGION}.amazonaws.com"
@@ -39,6 +41,9 @@ MODEL_MAP = {
     "claude-haiku-4-5": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
     "claude-haiku-4-5-20251001": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
     "claude-sonnet-4-20250514": "global.anthropic.claude-sonnet-4-20250514-v1:0",
+    # Bedrock regional IDs → cross-region inference IDs
+    "us.anthropic.claude-sonnet-4-5-20250929-v1:0": "global.anthropic.claude-sonnet-4-6",
+    "us.anthropic.claude-opus-4-5-20251101-v1:0": "global.anthropic.claude-opus-4-6-v1",
 }
 
 # Logging
