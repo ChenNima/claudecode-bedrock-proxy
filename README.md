@@ -1,0 +1,105 @@
+# Bedrock Effort Max Proxy
+
+本地反向代理，部署在 Claude Code CLI 与 AWS Bedrock 之间，用于弥补 Claude Code 在 Bedrock 场景下的几个已知不足。
+
+## 解决的问题
+
+### 1. Prompt Caching TTL 不可配置（主 CLI）
+
+**问题：** Claude Code 主进程（Opus）会自动注入 prompt caching breakpoints，但 TTL 固定为 5m（默认值），无法配置为 1h。对于长时间开发会话，5 分钟后 cache 过期导致全量重新写入，浪费大量 input tokens 费用。
+
+**Proxy 行为：** 将所有已有 `cache_control` 的 TTL 从 5m 升级为 1h。
+
+**实际效果（来自日志）：**
+```
+# 5m TTL 过期后：61k tokens 全量重写 ≈ $1.14
+[#11] cache: read=0      write=61149  ← cache miss, 全量重写
+
+# 升级 1h TTL 后：后续请求全部命中
+[#14] cache: read=61149   write=246   ← cache hit
+```
+
+### 2. Agent SDK 完全缺失 Prompt Caching（Subagent）
+
+**问题：** Claude Code 通过 Agent tool 生成的子 agent 使用 `agent-sdk`，该 SDK（截至 v0.1.76）**完全不注入** `cache_control` breakpoints。所有 subagent 请求的 tools 和 system prompt 每次都作为 uncached input 计费。
+
+**Proxy 行为：** 对无 breakpoints 的请求（`pre=0`），自动在 tools、system prompt、最后一条 assistant message 上注入 `cache_control`（最多 4 个断点，遵守 API 限制）。
+
+**实际效果：**
+```
+# Subagent 请求，proxy 注入后：
+[#1]  cache: 2bp(tools+system,1h,pre=0)  → cr=7013  cw=0     ← 命中缓存
+[#13] cache: 2bp(tools+system,1h,pre=0)  → cr=7013  cw=0     ← 持续命中
+```
+
+### 3. Thinking 配置未针对最新模型优化
+
+**问题：** Claude Code 对 Opus 4.6 / Sonnet 4.6 仍使用旧版 `budget_tokens` thinking 模式或未设置 `effort=max`，无法充分利用新模型的 adaptive thinking 能力。
+
+**Proxy 行为：**
+
+| 模型 | 策略 |
+|------|------|
+| Opus 4.6 / Sonnet 4.6 | `thinking: adaptive` + `effort: max` + `context-1m` beta |
+| 旧模型（Sonnet 4.5 等） | `budget_tokens` 最大化至 `max_tokens - 1` |
+| Haiku | 跳过（不支持 thinking） |
+
+### 4. 模型 ID 映射与版本锁定
+
+**问题：** Claude Code 使用 Anthropic API 格式的 model ID（如 `claude-sonnet-4-5`），但 Bedrock 需要跨区域推理 profile ID。此外，无法在不更新 CC 配置的情况下将旧版模型请求路由到新版。
+
+**Proxy 行为：** 自动映射，同时支持版本升级锁定：
+
+```
+claude-opus-4-6          → global.anthropic.claude-opus-4-6-v1
+claude-sonnet-4-5        → global.anthropic.claude-sonnet-4-6      ← 自动升级
+claude-sonnet-4-5-20250929 → global.anthropic.claude-sonnet-4-6
+claude-haiku-4-5         → global.anthropic.claude-haiku-4-5-20251001-v1:0
+```
+
+## 架构
+
+```
+Claude Code CLI
+      │
+      ▼
+  127.0.0.1:8888  (proxy)
+      │
+      ├─ 解析 & 修改 request body
+      │   ├─ thinking/effort 配置
+      │   ├─ cache_control 注入 / TTL 升级
+      │   └─ model ID 映射
+      │
+      ▼
+  AWS Bedrock (bedrock-runtime / bedrock)
+```
+
+## 使用
+
+```bash
+# 启动
+./start.sh
+
+# 停止
+./stop.sh
+
+# 健康检查
+curl http://127.0.0.1:8888/health
+```
+
+## 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `PROXY_PORT` | `8888` | 监听端口 |
+| `AWS_REGION` | `ap-northeast-1` | Bedrock 区域 |
+| `BEDROCK_BEARER_TOKEN` | - | 设置后使用 Bearer 认证，否则 SigV4 |
+| `CACHE_ENABLED` | `1` | 启用 prompt caching 注入 |
+| `CACHE_TTL` | `1h` | Cache TTL（`5m` 或 `1h`） |
+
+## 依赖
+
+- Python 3.9+
+- `aiohttp`
+- `botocore`
+- `yarl`
